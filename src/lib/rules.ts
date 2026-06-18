@@ -1,4 +1,4 @@
-import { INDUSTRIES } from './types'
+import { JOB_CATEGORIES } from './types'
 import type { Applicant, ApplicantDraft, Company, DashboardStats } from './types'
 
 const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'ppt', 'pptx']
@@ -13,7 +13,8 @@ export function validateApplicantForm(draft: ApplicantDraft): string[] {
   if (!draft.name.trim()) errors.push('이름은 필수입니다.')
   if (!draft.birthDate) errors.push('생년월일은 필수입니다.')
   if (!draft.phone.trim()) errors.push('핸드폰번호는 필수입니다.')
-  if (!draft.jobCategory) errors.push('구직업종은 필수입니다.')
+  if (!draft.jobCategory) errors.push('선택한 채용공고의 직무 정보가 필요합니다.')
+  if (draft.selectedCompanyIds.length === 0) errors.push('이력서를 접수할 기업을 1개 이상 선택해야 합니다.')
   if (!draft.resumeFileName) errors.push('이력서 파일은 필수입니다.')
   if (draft.resumeFileName && !ALLOWED_EXTENSIONS.includes(getFileExtension(draft.resumeFileName))) {
     errors.push('허용되지 않은 이력서 파일 형식입니다.')
@@ -24,8 +25,13 @@ export function validateApplicantForm(draft: ApplicantDraft): string[] {
   return errors
 }
 
-export function getMatchedCompanies(applicant: Pick<ApplicantDraft, 'jobCategory'>, companies: Company[]) {
-  return companies.filter((company) => company.industry === applicant.jobCategory)
+export function getSameJobCompanies(selectedCompany: Company | undefined, companies: Company[]) {
+  if (!selectedCompany) return []
+  return companies.filter((company) => company.jobCategory === selectedCompany.jobCategory)
+}
+
+export function getSelectedCompanies(applicant: Pick<ApplicantDraft, 'selectedCompanyIds'>, companies: Company[]) {
+  return companies.filter((company) => applicant.selectedCompanyIds.includes(company.id))
 }
 
 export function generateReceiptNo(date: string, dailySequence: number) {
@@ -34,7 +40,7 @@ export function generateReceiptNo(date: string, dailySequence: number) {
 }
 
 export function buildDashboardStats(applicants: Applicant[]): DashboardStats {
-  const byCategory = Object.fromEntries(INDUSTRIES.map((industry) => [industry, 0])) as DashboardStats['byCategory']
+  const byCategory = Object.fromEntries(JOB_CATEGORIES.map((category) => [category, 0])) as DashboardStats['byCategory']
   applicants.forEach((applicant) => {
     byCategory[applicant.jobCategory] += 1
   })

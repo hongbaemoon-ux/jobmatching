@@ -1,12 +1,20 @@
-export const INDUSTRIES = ['제조업', '도소매', '전문서비스', '건설', '금융', '기타'] as const
+export const JOB_CATEGORIES = ['물류/운수', '보건/돌봄', '시설/보안', '제조/생산', '영업/판매', '교육/사무', '조리/미화', '기타'] as const
+export type JobCategory = (typeof JOB_CATEGORIES)[number]
+
+export const INDUSTRIES = ['물류', '운수', '보건복지', '시설관리', '보안', '제조업', '유통', '교육서비스', '사무지원', '외식', '환경미화', '기타서비스'] as const
 export type Industry = (typeof INDUSTRIES)[number]
+
+export const GYEONGGI_DISTRICTS = ['김포시', '부천시', '광명시', '안양시', '시흥시', '안산시', '수원시', '화성시', '성남시'] as const
+export type GyeonggiDistrict = (typeof GYEONGGI_DISTRICTS)[number]
 
 export type ApplicantDraft = {
   name: string
   birthDate: string
   phone: string
   email?: string
-  jobCategory: Industry | ''
+  jobCategory: JobCategory | ''
+  addressDistrict?: GyeonggiDistrict
+  selectedCompanyIds: string[]
   resumeFileName: string
   resumeFileSize: number
   privacyConsent: boolean
@@ -15,7 +23,7 @@ export type ApplicantDraft = {
 export type Applicant = ApplicantDraft & {
   id: string
   receiptNo: string
-  jobCategory: Industry
+  jobCategory: JobCategory
   createdAt: string
   consentedAt: string
   matchedCompanyIds: string[]
@@ -26,6 +34,11 @@ export type Company = {
   companyName: string
   businessNumber: string
   industry: Industry
+  jobCategory: JobCategory
+  recruitmentPart: string
+  addressDistrict: GyeonggiDistrict
+  postingSummary: string
+  postingUrl: string
   managerName: string
   managerEmail: string
 }
@@ -54,5 +67,5 @@ export type DashboardStats = {
   totalApplicants: number
   totalMatched: number
   totalUnmatched: number
-  byCategory: Record<Industry, number>
+  byCategory: Record<JobCategory, number>
 }
