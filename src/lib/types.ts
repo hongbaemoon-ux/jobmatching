@@ -58,14 +58,14 @@ export type MatchingManager = {
 export type EmailLog = {
   id: string
   createdAt: string
-  recipientType: '매칭 담당자'
+  recipientType: '매칭 담당자' | '기업 담당자'
   recipientName: string
   recipientEmail: string
   applicantReceiptNo: string
   subject: string
   body: string
   attachmentFileName: string
-  status: '관리자 점검 대기' | '수동 전달 필요'
+  status: '관리자 점검 대기' | '기업 발송 완료' | '중복 발송 차단'
 }
 
 export type DashboardStats = {

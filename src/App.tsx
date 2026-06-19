@@ -6,7 +6,7 @@ import { buildEmailLogs, managers, seedApplicants, seedCompanies } from './lib/s
 import { EMPLOYMENT_TYPES, JOB_CATEGORIES } from './lib/types'
 import type { Applicant, ApplicantDraft, Company, EmailLog, GyeonggiDistrict } from './lib/types'
 
-const storageKey = 'jobmatching-mvp-v3'
+const storageKey = 'jobmatching-mvp-v4'
 
 type Store = { applicants: Applicant[]; companies: Company[]; emailLogs: EmailLog[] }
 const initialStore: Store = { applicants: seedApplicants, companies: seedCompanies, emailLogs: buildEmailLogs(seedApplicants, seedCompanies) }
@@ -71,11 +71,42 @@ function App() {
     const next = { ...store, applicants: [applicant, ...store.applicants], emailLogs: [...applicantLogs, ...store.emailLogs] }
     save(next)
     setSelectedApplicantId(applicant.id)
-    alert(`신청이 완료되었습니다. 접수번호: ${applicant.receiptNo}\n관리자에게 사전 점검 요청 이메일 로그가 생성되었습니다.\n선택 기업 ${selectedCompanies.length}곳은 점검 후 수동 전달 대상입니다.\n※ 실제 이메일은 발송되지 않고 로그로만 시뮬레이션됩니다.`)
+    alert(`이력서 사전 접수가 완료되었습니다. 접수번호: ${applicant.receiptNo}\n선택 기업 ${selectedCompanies.length}곳에 접수되었습니다.\n※ 내부 확인용 MVP에서는 실제 이메일은 발송되지 않고 로그로만 시뮬레이션됩니다.`)
   }
 
   function addCompany(company: Company) {
     save({ ...store, companies: [company, ...store.companies] })
+  }
+
+  function sendApplicantToCompanies(applicantId: string) {
+    const applicant = store.applicants.find((item) => item.id === applicantId)
+    if (!applicant) return
+    const selectedCompanies = store.companies.filter((company) => applicant.matchedCompanyIds.includes(company.id))
+    const alreadySentCompanyIds = new Set(
+      store.emailLogs
+        .filter((log) => log.applicantReceiptNo === applicant.receiptNo && log.recipientType === '기업 담당자' && log.status === '기업 발송 완료')
+        .map((log) => log.id.split('-').at(-1) ?? ''),
+    )
+    const newCompanyLogs: EmailLog[] = selectedCompanies
+      .filter((company) => !alreadySentCompanyIds.has(company.id))
+      .map((company) => ({
+        id: `log-${applicant.id}-${company.id}`,
+        createdAt: new Date().toISOString(),
+        recipientType: '기업 담당자' as const,
+        recipientName: `${company.companyName} ${company.managerName}`,
+        recipientEmail: company.managerEmail,
+        applicantReceiptNo: applicant.receiptNo,
+        subject: `[경기도 5070 일자리박람회] 이력서 사전 접수 안내 - ${company.recruitmentPart}`,
+        body: `${applicant.name}님의 이력서 사전 접수 내역을 관리자 점검 후 기업담당자에게 전달하는 이메일 시뮬레이션입니다.`,
+        attachmentFileName: applicant.resumeFileName,
+        status: '기업 발송 완료' as const,
+      }))
+    if (newCompanyLogs.length === 0) {
+      alert('이미 선택 기업 전체에 발송 완료 처리되어 중복 발송을 차단했습니다.')
+      return
+    }
+    save({ ...store, emailLogs: [...newCompanyLogs, ...store.emailLogs] })
+    alert(`기업담당자 ${newCompanyLogs.length}곳에 발송 완료로 기록했습니다.\n※ 실제 이메일은 발송되지 않는 MVP 시뮬레이션입니다.`)
   }
 
   return (
@@ -84,7 +115,7 @@ function App() {
         <div>
           <p className="badge">내부 확인용 MVP · 테스트 데이터 전용</p>
           <h1>일자리 박람회 이력서 사전 접수 웹앱</h1>
-          <p>외부 홈페이지에서 선택한 공고를 기준으로 같은 직무의 다른 공고를 제안하고, 관리자 사전 점검 후 기업담당자에게 수동 전달하는 흐름을 시뮬레이션합니다.</p>
+          <p>외부 홈페이지에서 선택한 공고를 기준으로 같은 직무의 다른 공고를 제안하고, 선택한 기업에 이력서 사전 접수를 진행하는 내부 확인용 흐름을 시뮬레이션합니다.</p>
         </div>
         <nav>
           <button onClick={() => setView('apply')}>구직자 신청</button>
@@ -99,14 +130,13 @@ function App() {
           <li>외부 홈페이지에서 기업 공고 열람 후 ‘이력서 사전 접수’를 클릭했다고 가정합니다.</li>
           <li>이 웹앱에서는 이미 선택한 기업이 자동 체크되고, 같은 직무의 다른 공고가 함께 표시됩니다.</li>
           <li>공고 전문은 웹앱에 담지 않고 ‘원본 공고 보기’ 링크로 외부 홈페이지 새 창을 엽니다.</li>
-          <li>신청 즉시 기업에 발송하지 않고, 관리자 이메일 수신 및 사전 점검 후 수동 전달합니다.</li>
           <li>실제 개인정보, 실제 이력서, 실제 기업정보를 입력하지 마세요.</li>
         </ul>
       </section>
 
       {view === 'apply' && <ApplyPage companies={store.companies} onSubmit={handleApplicantSubmit} />}
       {view === 'login' && <LoginPage onLogin={handleLogin} error={loginError} />}
-      {view === 'admin' && <AdminPage admin={admin} store={store} selectedApplicantId={selectedApplicantId} setSelectedApplicantId={setSelectedApplicantId} addCompany={addCompany} />}
+      {view === 'admin' && <AdminPage admin={admin} store={store} selectedApplicantId={selectedApplicantId} setSelectedApplicantId={setSelectedApplicantId} addCompany={addCompany} sendApplicantToCompanies={sendApplicantToCompanies} />}
     </main>
   )
 }
@@ -140,7 +170,7 @@ function ApplyPage({ companies, onSubmit }: { companies: Company[]; onSubmit: (d
   }
 
   return <section className="card"><h2>이력서 사전 접수</h2>
-    {selectedCompany && <div className="selected-posting"><strong>외부 홈페이지에서 선택한 공고</strong><p>{selectedCompany.companyName} / {selectedCompany.recruitmentPart} / {selectedCompany.addressDistrict}</p><p className="muted">처음 선택한 기업은 자동 선택되어 있습니다. 원하지 않으면 해제할 수 있으며, 체크된 기업만 관리자 점검 후 수동 전달 대상이 됩니다.</p></div>}
+    {selectedCompany && <div className="selected-posting"><strong>외부 홈페이지에서 선택한 공고</strong><p>{selectedCompany.companyName} / {selectedCompany.recruitmentPart} / {selectedCompany.addressDistrict}</p><p className="muted">처음 선택한 기업은 자동 선택되어 있습니다. 원하지 않으면 해제할 수 있으며, 체크된 기업에만 이력서가 접수됩니다.</p></div>}
     <div className="card inner"><h3>같은 직무의 다른 채용공고</h3><p className="muted">직무: {selectedCompany?.jobCategory ?? '-'} · 공고 전문은 원본 공고 링크에서 확인합니다.</p><div className="posting-list">
       {sameJobCompanies.map((company) => <article key={company.id} className="posting-item">
         <label className="check"><input type="checkbox" checked={selectedCompanyIds.includes(company.id)} onChange={(e) => toggleCompany(company.id, e.target.checked)} /> <b>{company.companyName}</b>{company.id === selectedCompany?.id && <span className="pill">자동 선택</span>}</label>
@@ -166,7 +196,7 @@ function ApplyPage({ companies, onSubmit }: { companies: Company[]; onSubmit: (d
         <p>□ 동의 거부 권리 및 거부 시 불이익<br />- 귀하는 개인정보 제공에 동의하지 않을 권리가 있습니다.<br />- 동의하지 않으실 경우 이력서 사전 제출을 통한 채용 절차에 제한이 있을 수 있습니다.</p>
       </div><label className="check"><input type="checkbox" checked={draft.privacyConsent} onChange={(e) => setDraft({ ...draft, privacyConsent: e.target.checked })} /> 위 개인정보 수집·이용·제공 내용에 동의합니다.</label></div>
       {errors.length > 0 && <div className="errors">{errors.map((error) => <p key={error}>• {error}</p>)}</div>}
-      <button className="primary" type="submit">관리자 점검용 이력서 사전 접수</button>
+      <button className="primary" type="submit">이력서 사전 접수</button>
     </form></section>
 }
 
@@ -176,7 +206,7 @@ function LoginPage({ onLogin, error }: { onLogin: (email: string, password: stri
   return <section className="card narrow"><h2>관리자 로그인</h2><p>테스트 계정: admin1@example.com / test1234 또는 admin2@example.com / test1234</p><form onSubmit={(e) => { e.preventDefault(); onLogin(email, password) }} className="grid"><label>이메일<input value={email} onChange={(e) => setEmail(e.target.value)} /></label><label>비밀번호<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>{error && <p className="errors">{error}</p>}<button className="primary">로그인</button></form></section>
 }
 
-function AdminPage({ admin, store, selectedApplicantId, setSelectedApplicantId, addCompany }: { admin: string; store: Store; selectedApplicantId: string; setSelectedApplicantId: (id: string) => void; addCompany: (company: Company) => void }) {
+function AdminPage({ admin, store, selectedApplicantId, setSelectedApplicantId, addCompany, sendApplicantToCompanies }: { admin: string; store: Store; selectedApplicantId: string; setSelectedApplicantId: (id: string) => void; addCompany: (company: Company) => void; sendApplicantToCompanies: (applicantId: string) => void }) {
   const [activeTab, setActiveTab] = useState<'overview' | 'job' | 'company' | 'applicant' | 'email' | 'posting'>('overview')
   const stats = useMemo(() => buildDashboardStats(store.applicants), [store.applicants])
   const selected = store.applicants.find((applicant) => applicant.id === selectedApplicantId) ?? store.applicants[0]
@@ -184,6 +214,8 @@ function AdminPage({ admin, store, selectedApplicantId, setSelectedApplicantId, 
   const today = new Date().toISOString().slice(0, 10)
   const todayApplicants = store.applicants.filter((applicant) => applicant.createdAt.startsWith(today)).length
   const totalCompanySelections = store.applicants.reduce((sum, applicant) => sum + applicant.matchedCompanyIds.length, 0)
+  const companySentLogs = store.emailLogs.filter((log) => log.recipientType === '기업 담당자' && log.status === '기업 발송 완료')
+  const pendingApplicantCount = store.applicants.filter((applicant) => !store.emailLogs.some((log) => log.applicantReceiptNo === applicant.receiptNo && log.recipientType === '기업 담당자' && log.status === '기업 발송 완료')).length
   const companyRows = store.companies.map((company) => {
     const relatedApplicants = store.applicants.filter((applicant) => applicant.matchedCompanyIds.includes(company.id))
     const latest = relatedApplicants.map((applicant) => applicant.createdAt).sort().at(-1)
@@ -203,9 +235,9 @@ function AdminPage({ admin, store, selectedApplicantId, setSelectedApplicantId, 
     <div className="tabbar">{tabs.map(([key, label]) => <button key={key} className={activeTab === key ? 'active-tab' : ''} onClick={() => setActiveTab(key)}>{label}</button>)}</div>
 
     {activeTab === 'overview' && <div className="tab-panel">
-      <div className="stats"><Stat label="총 이력서 사전 접수" value={`${stats.totalApplicants}건`} /><Stat label="오늘 접수" value={`${todayApplicants}건`} /><Stat label="관리자 점검 대기" value={`${store.emailLogs.length}건`} /><Stat label="수동 전달 대상 기업" value={`${totalCompanySelections}건`} /></div>
+      <div className="stats"><Stat label="총 이력서 사전 접수" value={`${stats.totalApplicants}건`} /><Stat label="오늘 접수" value={`${todayApplicants}건`} /><Stat label="관리자 점검 대기" value={`${pendingApplicantCount}건`} /><Stat label="기업 발송 완료" value={`${companySentLogs.length}/${totalCompanySelections}건`} /></div>
       <div className="columns"><div className="card"><h3>직무별 접수 요약</h3><div className="chips">{JOB_CATEGORIES.map((category) => <span key={category}>{category}: {stats.byCategory[category]}명</span>)}</div></div>
-      <div className="card"><h3>기업별 수동 전달 대상 상위 5개</h3>{companyRows.slice(0, 5).map(({ company, count }) => <p key={company.id}>• {company.companyName} / {company.recruitmentPart}: {count}건</p>)}<p className="muted">관리자 이메일 로그: {store.emailLogs.length}건 · 기업 자동 발송 없음</p><p className="muted">향후 승인 자동화 도입 시 중복 발송 방지 점검 필요</p></div></div>
+      <div className="card"><h3>기업별 수동 전달 대상 상위 5개</h3>{companyRows.slice(0, 5).map(({ company, count }) => <p key={company.id}>• {company.companyName} / {company.recruitmentPart}: {count}건</p>)}<p className="muted">관리자 이메일 로그: {store.emailLogs.length}건 · 관리자 버튼 클릭 후 기업 발송 완료 기록</p><p className="muted">향후 승인 자동화 도입 시 중복 발송 방지 점검 필요</p></div></div>
     </div>}
 
     {activeTab === 'job' && <div className="card tab-panel"><h3>직무별 현황</h3><table><tbody>{jobRows.map((row) => <tr key={row.category}><td>{row.category}</td><td>접수자 {row.applicantCount}명</td><td>선택 기업 {row.selectedCount}건</td><td>참여 기업 {row.companyCount}개</td><td>평균 선택 {row.average}개</td></tr>)}</tbody></table></div>}
@@ -213,12 +245,17 @@ function AdminPage({ admin, store, selectedApplicantId, setSelectedApplicantId, 
     {activeTab === 'company' && <div className="card tab-panel"><h3>기업별 현황</h3><table><tbody>{companyRows.map(({ company, count, latest }) => <tr key={company.id}><td>{company.companyName}</td><td>{company.jobCategory}</td><td>{company.recruitmentPart}</td><td>{company.employmentType}</td><td>{company.industry}</td><td>{company.recruitmentCount}명</td><td>{company.addressDistrict}</td><td>{count}건</td><td>{company.managerEmail}</td><td>{latest ? new Date(latest).toLocaleString() : '-'}</td><td><a href={company.postingUrl} target="_blank" rel="noreferrer">원본</a></td></tr>)}</tbody></table></div>}
 
     {activeTab === 'applicant' && <div className="columns tab-panel"><div className="card"><h3>구직자 목록</h3><table><tbody>{store.applicants.map((applicant) => <tr key={applicant.id} onClick={() => setSelectedApplicantId(applicant.id)} className={selected?.id === applicant.id ? 'active' : ''}><td>{applicant.receiptNo}</td><td>{applicant.name}</td><td>{applicant.jobCategory}</td><td>{applicant.matchedCompanyIds.length}개 기업 수동전달 대상</td></tr>)}</tbody></table></div>
-    <div className="card"><h3>구직자 상세</h3>{selected && <><p><b>접수번호:</b> {selected.receiptNo}</p><p><b>이름:</b> {selected.name}</p><p><b>생년월일:</b> {selected.birthDate}</p><p><b>연락처:</b> {selected.phone}</p><p><b>이메일:</b> {selected.email || '미입력'}</p><p><b>직무:</b> {selected.jobCategory}</p><p><b>주소:</b> 경기도 {selected.addressDistrict || '-'}</p><p><b>이력서:</b> {selected.resumeFileName}</p><p><b>개인정보 동의:</b> 동의 / {new Date(selected.consentedAt).toLocaleString()}</p><h4>관리자 점검 후 수동 전달 대상 기업</h4>{selectedCompanies.length ? selectedCompanies.map((company) => <p key={company.id}>• {company.companyName} / {company.recruitmentPart} / {company.employmentType} / {company.industry} / {company.recruitmentCount}명 / {company.addressDistrict} / {company.managerEmail}</p>) : <p>미선택</p>}<p className="muted">현재 단계에서는 관리자가 확인 후 직접 기업담당자에게 전달합니다. 열람 또는 클릭만으로 자동 발송되지 않습니다.</p></>}</div></div>}
+    <div className="card"><h3>구직자 상세</h3>{selected && <ApplicantDetail applicant={selected} companies={selectedCompanies} emailLogs={store.emailLogs} sendApplicantToCompanies={sendApplicantToCompanies} />}</div></div>}
 
-    {activeTab === 'email' && <div className="card tab-panel"><h3>관리자 이메일 로그 시뮬레이션</h3><p className="muted">구직자 신청 시 관리자에게만 점검 요청 로그가 생성됩니다. 기업담당자 발송은 수동 전달 대상입니다.</p><table><tbody>{store.emailLogs.map((log) => <tr key={log.id}><td>{new Date(log.createdAt).toLocaleString()}</td><td>{log.recipientType}</td><td>{log.recipientName}</td><td>{log.recipientEmail}</td><td>{log.applicantReceiptNo}</td><td>{log.attachmentFileName}</td><td>{log.status}</td></tr>)}</tbody></table></div>}
+    {activeTab === 'email' && <div className="card tab-panel"><h3>이메일 로그 시뮬레이션</h3><p className="muted">관리자 점검 요청과 기업담당자 발송 완료 기록을 함께 확인합니다. 실제 이메일은 발송되지 않습니다.</p><table><tbody>{store.emailLogs.map((log) => <tr key={log.id}><td>{new Date(log.createdAt).toLocaleString()}</td><td>{log.recipientType}</td><td>{log.recipientName}</td><td>{log.recipientEmail}</td><td>{log.applicantReceiptNo}</td><td>{log.attachmentFileName}</td><td>{log.status}</td></tr>)}</tbody></table></div>}
 
     {activeTab === 'posting' && <div className="columns tab-panel"><div className="card"><h3>원본 공고 연결 관리</h3><table><tbody>{companyRows.map(({ company, count }) => <tr key={company.id}><td>{company.id}</td><td>{company.companyName}</td><td>{company.jobCategory}</td><td>{company.recruitmentPart}</td><td>{company.employmentType}</td><td>{company.industry}</td><td>{company.recruitmentCount}명</td><td>{company.addressDistrict}</td><td>게시중</td><td>{count}건</td><td><a href={company.postingUrl} target="_blank" rel="noreferrer">원본 공고</a></td></tr>)}</tbody></table></div><CompanyForm addCompany={addCompany} /></div>}
   </section>
+}
+function ApplicantDetail({ applicant, companies, emailLogs, sendApplicantToCompanies }: { applicant: Applicant; companies: Company[]; emailLogs: EmailLog[]; sendApplicantToCompanies: (applicantId: string) => void }) {
+  const sentCompanyLogs = emailLogs.filter((log) => log.applicantReceiptNo === applicant.receiptNo && log.recipientType === '기업 담당자' && log.status === '기업 발송 완료')
+  const isAllSent = companies.length > 0 && sentCompanyLogs.length >= companies.length
+  return <><p><b>접수번호:</b> {applicant.receiptNo}</p><p><b>이름:</b> {applicant.name}</p><p><b>생년월일:</b> {applicant.birthDate}</p><p><b>연락처:</b> {applicant.phone}</p><p><b>이메일:</b> {applicant.email || '미입력'}</p><p><b>직무:</b> {applicant.jobCategory}</p><p><b>주소:</b> 경기도 {applicant.addressDistrict || '-'}</p><p><b>이력서:</b> {applicant.resumeFileName}</p><p className="muted">현재 MVP는 실제 이력서 파일을 저장하지 않아 파일명만 표시합니다. 운영 버전에서는 이 항목을 클릭해 첨부 이력서를 열람하도록 확장합니다.</p><p><b>개인정보 동의:</b> 동의 / {new Date(applicant.consentedAt).toLocaleString()}</p><h4>기업담당자 발송 대상</h4>{companies.length ? companies.map((company) => <p key={company.id}>• {company.companyName} / {company.recruitmentPart} / {company.employmentType} / {company.industry} / {company.recruitmentCount}명 / {company.addressDistrict} / {company.managerEmail}</p>) : <p>미선택</p>}<p className="muted">이력서 내용을 점검한 뒤 아래 버튼을 누르면 기업담당자 발송 완료로 기록됩니다. 같은 접수번호의 중복 발송은 차단됩니다.</p><button className="primary" type="button" disabled={isAllSent || companies.length === 0} onClick={() => sendApplicantToCompanies(applicant.id)}>{isAllSent ? '기업담당자 발송 완료' : '기업담당자에게 발송'}</button></>
 }
 function Stat({ label, value }: { label: string; value: string }) { return <div className="stat"><span>{label}</span><strong>{value}</strong></div> }
 function CompanyForm({ addCompany }: { addCompany: (company: Company) => void }) {
