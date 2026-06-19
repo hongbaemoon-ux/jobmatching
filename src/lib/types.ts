@@ -4,6 +4,9 @@ export type JobCategory = (typeof JOB_CATEGORIES)[number]
 export const INDUSTRIES = ['물류', '운수', '보건복지', '시설관리', '보안', '제조업', '유통', '교육서비스', '사무지원', '외식', '환경미화', '기타서비스'] as const
 export type Industry = (typeof INDUSTRIES)[number]
 
+export const EMPLOYMENT_TYPES = ['정규직', '계약직', '파트타임', '기간제', '파견/용역', '기타'] as const
+export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number]
+
 export const GYEONGGI_DISTRICTS = ['김포시', '부천시', '광명시', '안양시', '시흥시', '안산시', '수원시', '화성시', '성남시'] as const
 export type GyeonggiDistrict = (typeof GYEONGGI_DISTRICTS)[number]
 
@@ -36,6 +39,8 @@ export type Company = {
   industry: Industry
   jobCategory: JobCategory
   recruitmentPart: string
+  employmentType: EmploymentType
+  recruitmentCount: number
   addressDistrict: GyeonggiDistrict
   postingSummary: string
   postingUrl: string
@@ -53,14 +58,14 @@ export type MatchingManager = {
 export type EmailLog = {
   id: string
   createdAt: string
-  recipientType: '기업 담당자' | '매칭 담당자'
+  recipientType: '매칭 담당자'
   recipientName: string
   recipientEmail: string
   applicantReceiptNo: string
   subject: string
   body: string
   attachmentFileName: string
-  status: '시뮬레이션 완료'
+  status: '관리자 점검 대기' | '수동 전달 필요'
 }
 
 export type DashboardStats = {

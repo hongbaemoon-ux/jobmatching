@@ -3,9 +3,9 @@ import { buildDashboardStats, generateReceiptNo, getSameJobCompanies, getSelecte
 import type { Applicant, ApplicantDraft, Company } from './types'
 
 const companies: Company[] = [
-  { id: 'c1', companyName: '한빛물류', businessNumber: '101-81-00001', industry: '물류', jobCategory: '물류/운수', recruitmentPart: '물류센터 입출고', addressDistrict: '김포시', postingSummary: '김포시 근무', postingUrl: 'https://example.com/1', managerName: '김담당', managerEmail: 'c1@example.com' },
-  { id: 'c2', companyName: '미래케어', businessNumber: '102-82-00002', industry: '보건복지', jobCategory: '보건/돌봄', recruitmentPart: '요양보호사', addressDistrict: '부천시', postingSummary: '부천시 근무', postingUrl: 'https://example.com/2', managerName: '이담당', managerEmail: 'c2@example.com' },
-  { id: 'c3', companyName: '태산운수', businessNumber: '107-87-00007', industry: '운수', jobCategory: '물류/운수', recruitmentPart: '배송기사', addressDistrict: '광명시', postingSummary: '광명시 근무', postingUrl: 'https://example.com/3', managerName: '오담당', managerEmail: 'c3@example.com' },
+  { id: 'c1', companyName: '한빛물류', businessNumber: '101-81-00001', industry: '물류', jobCategory: '물류/운수', recruitmentPart: '물류센터 입출고', employmentType: '계약직', recruitmentCount: 3, addressDistrict: '김포시', postingSummary: '김포시 근무', postingUrl: 'https://example.com/1', managerName: '김담당', managerEmail: 'c1@example.com' },
+  { id: 'c2', companyName: '미래케어', businessNumber: '102-82-00002', industry: '보건복지', jobCategory: '보건/돌봄', recruitmentPart: '요양보호사', employmentType: '정규직', recruitmentCount: 2, addressDistrict: '부천시', postingSummary: '부천시 근무', postingUrl: 'https://example.com/2', managerName: '이담당', managerEmail: 'c2@example.com' },
+  { id: 'c3', companyName: '태산운수', businessNumber: '107-87-00007', industry: '운수', jobCategory: '물류/운수', recruitmentPart: '배송기사', employmentType: '파트타임', recruitmentCount: 1, addressDistrict: '광명시', postingSummary: '광명시 근무', postingUrl: 'https://example.com/3', managerName: '오담당', managerEmail: 'c3@example.com' },
 ]
 
 const validDraft: ApplicantDraft = {
